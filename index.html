@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>In session · Stanford</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#8c1515">
+<meta name="description" content="What class is meeting in every Stanford room right now — the course, who teaches it, and when it ends. Search a room, a building, a course or an instructor.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://matmat202.github.io/room-now/">
+<meta property="og:title" content="In session · Stanford">
+<meta property="og:description" content="What class is meeting in every Stanford room right now — the course, who teaches it, and when it ends.">
+<meta property="og:image" content="https://matmat202.github.io/room-now/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<style>
+/* --ink-3 is the tertiary ink (the component/instructor line, and the timeline's times).
+   It is NOT free-rooms' --busy #8a817a, which that page only ever paints under opacity:.65
+   on a dimmed row. As real text it measures 3.82:1 on white and 4.42:1 on the dark card —
+   both under the 4.5:1 minimum, and bin/audit refused to publish over it on 2026-10-29.
+   Computed, not eyeballed: #756c65 is 5.14:1 on card / 4.84:1 on ground, #9a918a is
+   5.46 / 5.98 in dark. Keep the margin; a value that merely scrapes 4.5 breaks on the
+   next tweak to a surface. */
+:root{--ground:#faf8f5;--card:#fff;--ink:#1f1b18;--ink-2:#5c544e;--ink-3:#756c65;--line:#e5dfd8;
+  --accent:#8c1515;--live:#1f7a46;--soonend:#9a6400;
+  --f-ui:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root{--ground:#161311;--card:#211c19;--ink:#efe9e3;
+  --ink-2:#b0a69d;--ink-3:#9a918a;--line:#352e29;--accent:#e36a63;--live:#5cc48a;--soonend:#e0a640}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--f-ui);font-size:15px}
+main{max-width:760px;margin:0 auto;padding-block:16px;padding-left:16px;padding-right:16px}
+h1{font-size:24px;margin:4px 0 2px}h1 .red{color:var(--accent)}
+.sub{color:var(--ink-2);font-size:13px;margin:0 0 14px;line-height:1.45}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.controls input,.controls select{font:inherit;padding:7px 9px;border:1px solid var(--line);
+  border-radius:8px;background:var(--card);color:var(--ink)}
+.controls input[type=search]{flex:1;min-width:170px}
+.summary{color:var(--ink-2);font-size:13px;margin:6px 0 10px;font-variant-numeric:tabular-nums}
+.bldg{margin:16px 0 4px;font-weight:600;font-size:12px;color:var(--ink-2);
+  text-transform:uppercase;letter-spacing:.04em}
+ul{list-style:none;margin:0;padding:0}
+li.room{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:9px 11px;margin:5px 0}
+li.room>button{all:unset;display:flex;width:100%;gap:10px;justify-content:space-between;
+  align-items:baseline;cursor:pointer}
+li.room>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+.where{font-weight:600}
+.what{color:var(--ink-2);font-size:13px;margin-top:2px;line-height:1.4}
+.what .code{color:var(--ink);font-weight:600}
+.who{color:var(--ink-3);font-size:12px;margin-top:1px}
+.ends{font-size:12px;font-weight:600;color:var(--live);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.ends.soonend{color:var(--soonend)}
+.day{margin:8px 0 2px;padding-top:8px;border-top:1px dashed var(--line)}
+.day table{width:100%;border-collapse:collapse;font-size:13px}
+.day td{padding:3px 0;vertical-align:baseline;color:var(--ink-2)}
+.day td.t{white-space:nowrap;width:1%;padding-right:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.day tr.now td{color:var(--ink);font-weight:600}
+.day tr.done td{opacity:.55}
+.note{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:11px 13px;
+  color:var(--ink-2);font-size:13px;line-height:1.5;margin:10px 0}
+.note b{color:var(--ink)}
+footer{color:var(--ink-2);font-size:12px;margin:24px 0 8px;line-height:1.55}
+footer a{color:inherit}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media (prefers-reduced-motion:no-preference){li.room{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<main>
+  <h1>In <span class="red">session</span></h1>
+  <p class="sub" id="sub">Loading the class schedule…</p>
+  <div class="controls">
+    <input type="search" id="q" placeholder="Room, building, course or instructor" aria-label="Search by room, building, course or instructor">
+    <select id="when" aria-label="Time"></select>
+  </div>
+  <div class="summary" id="summary"></div>
+  <div class="sr-only" id="said" role="status"></div>
+  <div id="list"></div>
+  <footer>
+    <p><b>On midterms.</b> <a href="https://explorecourses.stanford.edu/">ExploreCourses</a>
+    publishes no exams of any kind — every one of its 20 section types is instructional, and
+    a search for “exam”, “midterm” or “final” across all 3,953 Autumn meetings returns
+    nothing. Stanford’s
+    <a href="https://bulletin.stanford.edu/academic-polices/exams/midterm-examinations">Bulletin</a>
+    says why: a class holding a midterm outside regular class hours “must announce the date
+    and time during the first week of the academic quarter” — in class, not to a central
+    schedule. So a midterm held <em>during</em> class hours is the class shown here, and one
+    held outside them is not in any public feed. This page will not guess at it.</p>
+    <p>It also cannot see events, office hours, review sessions, room changes or locked
+    doors. Times are campus time. Looking for an empty room instead?
+    <a href="https://matmat202.github.io/free-rooms/">Free classrooms</a>.</p>
+  </footer>
+</main>
+<script src="rooms-logic.js"></script>
+<script src="now-logic.js"></script>
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+  let data;
+  try {
+    data = await (await fetch("data/meetings.json", { cache: "no-cache" })).json();
+  } catch (e) {
+    $("sub").textContent = "Could not load the schedule. Try reloading.";
+    return;
+  }
+
+  // ?at=2026-10-29T14:00 pins "now" to a campus time, for planning ahead and for tests.
+  // PST/PDT by the 2026-27 US rule, matching free-rooms so the two pages agree on an hour.
+  const pin = new URLSearchParams(location.search).get("at");
+  const base = pin ? new Date(`${pin}:00${
+    new Date(`${pin}:00Z`).getTime() >= Date.UTC(2026, 10, 1, 9)
+      && new Date(`${pin}:00Z`).getTime() < Date.UTC(2027, 2, 14, 10) ? "-08:00" : "-07:00"}`) : null;
+  const clockNow = () => base || new Date();
+
+  const term = RoomsLogic.pickTerm(data, clockNow());
+  const meetings = term.meetings || [];
+  const noClass = term.noClass || {};
+
+  // Time choices: now, then every half hour to 10 pm. Offset in minutes from midnight.
+  const c0 = RoomsLogic.campusNow(clockNow());
+  const opts = [["now", "Right now"]];
+  for (let m = Math.ceil((c0.min + 1) / 30) * 30; m <= 22 * 60; m += 30) {
+    const hh = String(Math.floor(m / 60)).padStart(2, "0"), mm = String(m % 60).padStart(2, "0");
+    opts.push([String(m), "At " + NowLogic.clock(`${hh}:${mm}`)]);
+  }
+  $("when").innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+
+  /** The Date the page is asking about: now, or today at the chosen minute. */
+  function asked() {
+    const v = $("when").value;
+    if (!v || v === "now") return clockNow();
+    const want = Number(v), here = RoomsLogic.campusNow(clockNow());
+    return new Date(clockNow().getTime() + (want - here.min) * 60000);
+  }
+
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+  const dayLabel = (iso) => new Date(`${iso}T12:00:00Z`)
+    .toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+
+  const open = new Set();   // rooms whose day timeline is expanded
+
+  function dayHtml(room, when) {
+    const rows = NowLogic.roomDay(meetings, room, when, noClass);
+    if (!rows.length) return `<div class="day">Nothing else scheduled here today.</div>`;
+    return `<div class="day"><table><tbody>${rows.map((r) => `
+      <tr class="${r.state}"><td class="t">${esc(NowLogic.range(r.start, r.end))}</td>
+      <td>${esc(r.course)}${r.title ? " · " + esc(r.title) : ""}
+      ${r.component ? `<span class="who"> ${esc(NowLogic.componentName(r.component))}</span>` : ""}</td></tr>`
+    ).join("")}</tbody></table></div>`;
+  }
+
+  function render() {
+    const when = asked();
+    const campus = RoomsLogic.campusNow(when);
+    const off = RoomsLogic.noClassDay(noClass, when);
+
+    if (term.state === "after") {
+      $("sub").textContent = `The ${term.term} schedule has ended and no later term is on file, `
+        + `so nothing here would be current.`;
+      $("list").innerHTML = ""; $("summary").textContent = ""; return;
+    }
+    if (term.state === "between") {
+      $("sub").textContent = `No classes until ${dayLabel(term.first)}, when ${term.term} begins.`;
+      $("list").innerHTML = ""; $("summary").textContent = ""; return;
+    }
+
+    const all = RoomsLogic.status(meetings, when, noClass);   // every known room, both pages agree
+    const rows = NowLogic.inUse(meetings, when, noClass);
+    const q = $("q").value;
+    const shown = rows.filter((r) => NowLogic.matches(r, q));
+
+    $("sub").innerHTML = `${esc(dayLabel(campus.date))}, ${esc(NowLogic.clock(
+      String(Math.floor(campus.min / 60)).padStart(2, "0") + ":" + String(campus.min % 60).padStart(2, "0")
+    ))} on campus · ${esc(term.term)}`;
+
+    if (off) {
+      $("summary").textContent = "";
+      $("list").innerHTML = `<div class="note"><b>${esc(off)}</b> — no classes meet today, so every
+        room is unbooked. ExploreCourses dates a class's first and last day only; the
+        registrar's calendar is what marks the days in between.</div>`;
+      return;
+    }
+
+    $("summary").textContent = q
+      ? `${shown.length} of ${rows.length} in-session room${rows.length === 1 ? "" : "s"} match “${q}”`
+      : NowLogic.summary(rows, all.length);
+    $("said").textContent = $("summary").textContent;
+
+    if (!rows.length) {
+      $("list").innerHTML = `<div class="note">Nothing is in session right now — no class on
+        the ${esc(campus.day)} schedule covers this minute. Evenings, weekends and the gaps
+        between class blocks all look like this.</div>`;
+      return;
+    }
+    if (!shown.length) {
+      $("list").innerHTML = `<div class="note">No room in session matches <b>${esc(q)}</b>.
+        Search matches a room, a building, a course code, a course title or an instructor's
+        surname — and only rooms with a class in them at this minute, so a course that meets
+        later today will not appear until it starts.</div>`;
+      return;
+    }
+
+    $("list").innerHTML = NowLogic.byBuilding(shown).map(([b, list]) => `
+      <h2 class="bldg">${esc(b)}</h2>
+      <ul>${list.map((r) => {
+        const soon = r.endsInMin <= 10;
+        return `<li class="room" data-room="${esc(r.room)}">
+          <button type="button" aria-expanded="${open.has(r.room)}">
+            <span>
+              <span class="where">${esc(r.room)}</span>
+              <span class="what"><span class="code">${esc(r.course)}</span>${
+                r.title ? " · " + esc(r.title) : ""}</span>
+              <span class="who">${esc(NowLogic.componentName(r.component))}${
+                r.who.length ? " · " + esc(r.who.slice(0, 3).join(", ")) : ""}${
+                r.alsoNow.length ? " · also " + esc(r.alsoNow.join(", ")) : ""}</span>
+            </span>
+            <span class="ends${soon ? " soonend" : ""}">${esc(NowLogic.endsLabel(r))}</span>
+          </button>
+          ${open.has(r.room) ? dayHtml(r.room, when) : ""}
+        </li>`;
+      }).join("")}</ul>`).join("");
+  }
+
+  $("list").addEventListener("click", (e) => {
+    const li = e.target.closest("li.room");
+    if (!li) return;
+    const room = li.dataset.room;
+    if (open.has(room)) open.delete(room); else open.add(room);
+    render();
+  });
+  $("q").addEventListener("input", render);
+  $("when").addEventListener("change", render);
+  render();
+  // Re-render on the minute so "ends in 3 min" does not go stale in an open tab.
+  if (!base) setInterval(render, 60000);
+})();
+</script>
+</body>
+</html>

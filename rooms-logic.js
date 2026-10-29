@@ -16,7 +16,10 @@
 (function (root) {
   const TZ = "America/Los_Angeles";
   // Locations that name no bookable room. Probed on the 2026-10-24 Autumn fetch.
-  const NOT_A_ROOM = /^(departmental room|tba|tbd|online|zoom|remote|off campus|to be announced|see department)/i;
+  // "School of Medicine Room" is the medical school's "Departmental Room": 62 Autumn
+  // meetings pooled under one name, so it read as a single room hosting BIO 230 and
+  // BIOC 205 at once (found 2026-10-29 by diffing against sql-course-db).
+  const NOT_A_ROOM = /^(departmental room|school of medicine room|tba|tbd|online|zoom|remote|off campus|to be announced|see department)/i;
   // Teaching spaces that are no place to sit down and study: PE classes meet in gyms,
   // on courts and at the stables; music in concert and rehearsal halls. 27 of 372 rooms.
   const VENUE = /\bgym(nasium)?\b|\baoerc\b|\bcourts?\b|stables|climbing|\bpool\b|driving range|concert hall|recital hall|rehearsal hall|\bfarm\b|^acsr\b/i;

@@ -81,7 +81,7 @@
 
   /**
    * Every room with a class in it at `date`, and what that class is.
-   * -> [{room, building, course, title, who, component, start, end, endsInMin, alsoNow}]
+   * -> [{room, building, course, title, who, component, start, end, endsInMin, alsoNow, alsoUnnamed}]
    * sorted by building then room. `alsoNow` is the other meetings sharing the room at the
    * same moment — rare, but real in the data (cross-listed sections and joint seminars),
    * and dropping them is how a page quietly tells you only half of what is in a room.
@@ -111,9 +111,22 @@
         endsInMin: toMin(m.end) - now.min,
         alsoNow: list.slice(1).map((x) => x.course),
       });
+      out[out.length - 1].alsoUnnamed = unnamed(out[out.length - 1]);
     }
     out.sort((a, b) => a.building.localeCompare(b.building) || a.room.localeCompare(b.room));
     return out;
+  }
+
+  /** The `alsoNow` codes the title does not already name. ExploreCourses titles carry
+   *  their cross-listings in brackets — "Economics for Sustainability (GEP 29, INTLPOL
+   *  279, PUBLPOL 29)" — and those sections meet in the same room at the same time, so
+   *  printing `alsoNow` beside the title said every code twice (17% of in-use rows over
+   *  a week of class times). A code the brackets do not name is a different class
+   *  sharing the room, and it stays. */
+  const CODE = /[A-Z][A-Z&]*(?: [A-Z&]+)? \d+[A-Z]*/g;
+  function unnamed(row) {
+    const named = new Set(((row.title || "").match(/\(([^()]*)\)/g) || []).join(" ").match(CODE) || []);
+    return row.alsoNow.filter((c) => !named.has(c));
   }
 
   /** Does `row` match the typed query? Matches room, building, course code, title and

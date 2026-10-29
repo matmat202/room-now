@@ -218,7 +218,7 @@ footer a{color:inherit}
                 r.title ? " · " + esc(r.title) : ""}</span>
               <span class="who">${esc(NowLogic.componentName(r.component))}${
                 r.who.length ? " · " + esc(r.who.slice(0, 3).join(", ")) : ""}${
-                r.alsoNow.length ? " · also " + esc(r.alsoNow.join(", ")) : ""}</span>
+                r.alsoUnnamed.length ? " · also " + esc(r.alsoUnnamed.join(", ")) : ""}</span>
             </span>
             <span class="ends${soon ? " soonend" : ""}">${esc(NowLogic.endsLabel(r))}</span>
           </button>

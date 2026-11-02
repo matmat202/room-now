@@ -68,6 +68,17 @@ footer{color:var(--ink-2);font-size:12px;margin:24px 0 8px;line-height:1.55}
 footer a{color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:no-preference){li.room{transition:border-color .15s}}
+/* finals panel: course-centric, says when and never where */
+details.finals{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:0 0 12px}
+details.finals summary{cursor:pointer;font-weight:600}
+details.finals summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+details.finals input{font:inherit;width:100%;margin:8px 0 4px;padding:7px 9px;border:1px solid var(--line);
+  border-radius:8px;background:var(--ground);color:var(--ink)}
+.fin td{padding:4px 0;vertical-align:baseline;font-size:13px;color:var(--ink-2)}
+.fin td.t{white-space:nowrap;padding-right:12px;color:var(--ink);font-variant-numeric:tabular-nums}
+.fin{width:100%;border-collapse:collapse}
+.warn{color:var(--soonend);font-weight:600;font-size:13px;margin:6px 0}
+.fine{color:var(--ink-3);font-size:12px;line-height:1.5;margin:6px 0 2px}
 /* iOS Safari zooms the page into any field under 16px when it is tapped (input-zoom) */
 input,select,textarea{font-size:16px!important}
 </style>
@@ -80,6 +91,16 @@ input,select,textarea{font-size:16px!important}
     <input type="search" id="q" placeholder="Room or building" aria-label="Search by room, building, course or instructor">
     <select id="when" aria-label="Time"></select>
   </div>
+  <details class="finals" id="finals">
+    <summary id="finsum">Finals week</summary>
+    <label class="sr-only" for="fq">Your course codes</label>
+    <input type="text" id="fq" placeholder="Your courses, e.g. CS 106B, MATH 51" autocomplete="off" spellcheck="false">
+    <div id="fout" aria-live="polite"></div>
+    <p class="fine">From the registrar’s <a id="fsrc" href="#">final exam schedule</a>, which gives a
+    final’s slot by when the lecture meets. It says <b>when</b>, never <b>where</b>: no public
+    source names an exam room, so check with your course. A course can also hold its final
+    differently (a project, a take-home); its syllabus wins.</p>
+  </details>
   <div class="summary" id="summary"></div>
   <div class="sr-only" id="said" role="status"></div>
   <div id="list"></div>
@@ -100,6 +121,7 @@ input,select,textarea{font-size:16px!important}
 </main>
 <script src="rooms-logic.js"></script>
 <script src="now-logic.js"></script>
+<script src="finals-logic.js"></script>
 <script>
 (async function () {
   const $ = (id) => document.getElementById(id);
@@ -238,6 +260,59 @@ input,select,textarea{font-size:16px!important}
   });
   $("q").addEventListener("input", render);
   $("when").addEventListener("change", render);
+
+  // ---- finals panel: independent of the term state, since finals week is AFTER the last class
+  (async function finals() {
+    let fd;
+    try { fd = await (await fetch("data/finals.json", { cache: "no-cache" })).json(); }
+    catch (e) { $("finals").hidden = true; return; }
+    const F = FinalsLogic;
+    const [d0, d1] = F.span(fd);
+    const short = (iso) => new Date(`${iso}T12:00:00Z`)
+      .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    const when = (sl) => `${short(sl.date)}, ${NowLogic.range(sl.start, sl.end)}`;
+    $("fsrc").href = fd.source;
+    $("finsum").textContent = `Finals week · ${short(d0)} – ${short(d1).replace(/^\w+, /, "")}`;
+    const campus = RoomsLogic.campusNow(clockNow());
+    if (campus.date >= d0 && campus.date <= d1) $("finals").open = true;
+    const saved = (() => { try { return localStorage.getItem("room-now.finals") || ""; } catch (e) { return ""; } })();
+    $("fq").value = saved;
+
+    function show() {
+      const text = $("fq").value;
+      try { localStorage.setItem("room-now.finals", text); } catch (e) { /* private mode */ }
+      const { found: codes, unknown } = F.scan(fd, text);
+      const miss = unknown.length ? `<p class="fine">Not found: ${esc(unknown.join(", "))}. Only courses
+        with a timed lecture this term are listed; a seminar or directed reading usually has no final.</p>` : "";
+      let h = "";
+      const now = F.slotNow(fd, RoomsLogic.campusNow(clockNow()));
+      if (now && !codes.length) {
+        h += `<p class="warn">In progress: the ${esc(NowLogic.range(now.start, now.end))} finals block, for
+          ${F.inSlot(fd, now.i).length} courses. Type yours to see if it is one.</p>`;
+      }
+      if (!codes.length) {
+        $("fout").innerHTML = h + (miss || (text.trim() ? `<p class="fine">No course code in “${esc(text)}”.</p>` : ""));
+        return;
+      }
+      const rs = F.rows(fd, codes);
+      for (const [date, l] of F.crowded(rs)) {
+        h += `<p class="warn">${l.length} finals on ${esc(short(date))}: ${esc(l.map((r) => r.code).join(", "))}.</p>`;
+      }
+      h += `<table class="fin"><tbody>${rs.map((r) => {
+        let t, note = "";
+        if (r.state === "none") { t = "No final"; note = " · none listed in ExploreCourses"; }
+        else if (r.state === "off") { t = "Ask your instructor"; note = " · its lecture time is not on the grid"; }
+        else if (r.state === "sections") { t = "Depends on section"; note = " · " + r.slots.map(when).join("; "); }
+        else t = when(r.slots[0]);
+        const live = now && r.slots.length === 1 && r.slots[0].i === now.i ? " (now)" : "";
+        return `<tr><td class="t">${esc(t + live)}</td><td><b>${esc(r.code)}</b> · ${esc(r.title)}${esc(note)}</td></tr>`;
+      }).join("")}</tbody></table>`;
+      $("fout").innerHTML = h + miss;
+    }
+    $("fq").addEventListener("input", show);
+    show();
+  })();
+
   render();
   // Re-render on the minute so "ends in 3 min" does not go stale in an open tab.
   if (!base) setInterval(render, 60000);

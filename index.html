@@ -48,11 +48,12 @@ li.room{background:var(--card);border:1px solid var(--line);border-left:3px soli
 li.room>button{all:unset;display:flex;width:100%;gap:10px;justify-content:space-between;
   align-items:baseline;cursor:pointer}
 li.room>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
+li.room>button>span:first-child{min-width:0;overflow-wrap:anywhere}
 .where{font-weight:600}
 .what{color:var(--ink-2);font-size:13px;margin-top:2px;line-height:1.4}
 .what .code{color:var(--ink);font-weight:600}
 .who{color:var(--ink-3);font-size:12px;margin-top:1px}
-.ends{font-size:12px;font-weight:600;color:var(--live);white-space:nowrap;
+.ends{font-size:12px;font-weight:600;color:var(--live);white-space:nowrap;flex-shrink:0;
   font-variant-numeric:tabular-nums}
 .ends.soonend{color:var(--soonend)}
 .day{margin:8px 0 2px;padding-top:8px;border-top:1px dashed var(--line)}
@@ -94,7 +95,7 @@ input,select,textarea{font-size:16px!important}
   <details class="finals" id="finals">
     <summary id="finsum">Finals week</summary>
     <label class="sr-only" for="fq">Your course codes</label>
-    <input type="text" id="fq" placeholder="Your courses, e.g. CS 106B, MATH 51" autocomplete="off" spellcheck="false">
+    <input type="text" id="fq" placeholder="Your courses, e.g. CS 106B" autocomplete="off" spellcheck="false">
     <div id="fout" aria-live="polite"></div>
     <p class="fine">From the registrar’s <a id="fsrc" href="#">final exam schedule</a>, which gives a
     final’s slot by when the lecture meets. It says <b>when</b>, never <b>where</b>: no public

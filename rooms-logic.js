@@ -27,6 +27,13 @@
   const ALIAS = { LATHRO: "Lathrop", DINK: "Dinkelspiel Auditorium", EDWRDS: "E.D. Stone Edwards Bldg", Packrd: "Packard", Memaud: "Memorial Auditorium" };
   const SOON = 30; // minutes: a room free for less than this is shown as "class soon"
 
+  // Room and building names in reading order, numbers as numbers: "Building 20" before
+  // "Building 160", "Gates B3" before "Gates B12", "120-59" before "120-101". Plain
+  // localeCompare compares digits as text and put 25 of 110 buildings and 143 of 396
+  // rooms out of place on room-now (measured 2026-11-09).
+  const NAMES = new Intl.Collator("en", { numeric: true });
+  const byName = (a, b) => NAMES.compare(a, b);
+
   const toMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
   const fromMin = (n) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 
@@ -104,7 +111,7 @@
     const key = (r) => (r.until === null ? 24 * 60 : toMin(r.until));
     out.sort((a, b) => rank[a.state] - rank[b.state]
       || (a.state === "busy" ? key(a) - key(b) : key(b) - key(a))
-      || a.room.localeCompare(b.room));
+      || byName(a.room, b.room));
     return out;
   }
 
@@ -173,7 +180,7 @@
     return `until ${h}${m ? ":" + String(m).padStart(2, "0") : ""} ${ap}`;
   }
 
-  const api = { status, pickTerm, allMeetings, termOver, noClassDay, campusNow, isRoom, building, untilLabel, SOON };
+  const api = { byName, status, pickTerm, allMeetings, termOver, noClassDay, campusNow, isRoom, building, untilLabel, SOON };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.RoomsLogic = api;
 })(typeof self !== "undefined" ? self : this);

@@ -113,7 +113,7 @@
       });
       out[out.length - 1].alsoUnnamed = unnamed(out[out.length - 1]);
     }
-    out.sort((a, b) => a.building.localeCompare(b.building) || a.room.localeCompare(b.room));
+    out.sort((a, b) => R.byName(a.building, b.building) || R.byName(a.room, b.room));
     return out;
   }
 
@@ -150,7 +150,7 @@
       if (!g.has(r.building)) g.set(r.building, []);
       g.get(r.building).push(r);
     }
-    return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...g.entries()].sort((a, b) => R.byName(a[0], b[0]));
   }
 
   /** "ends in 12 min", "ends at 2:50 pm" past the hour mark. Under a minute reads as

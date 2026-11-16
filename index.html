@@ -45,10 +45,13 @@ h1{font-size:24px;margin:4px 0 2px}h1 .red{color:var(--accent)}
 ul{list-style:none;margin:0;padding:0}
 li.room{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:8px;padding:9px 11px;margin:5px 0}
-li.room>button{all:unset;display:flex;width:100%;gap:10px;justify-content:space-between;
-  align-items:baseline;cursor:pointer}
+/* grid, not inline spans: the name and its countdown share line one, the course and the
+   people get their own full-width lines (inline spans ran all four together and ignored margins) */
+li.room>button{all:unset;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;
+  align-items:baseline;width:100%;cursor:pointer}
+li.room>button>.what,li.room>button>.who{grid-column:1/-1;display:block}
 li.room>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
-li.room>button>span:first-child{min-width:0;overflow-wrap:anywhere}
+li.room>button>.where{min-width:0;overflow-wrap:anywhere}
 .where{font-weight:600}
 .what{color:var(--ink-2);font-size:13px;margin-top:2px;line-height:1.4}
 .what .code{color:var(--ink);font-weight:600}
@@ -238,15 +241,13 @@ input,select,textarea{font-size:16px!important}
         const soon = r.endsInMin <= 10;
         return `<li class="room" data-room="${esc(r.room)}">
           <button type="button" aria-expanded="${open.has(r.room)}">
-            <span>
-              <span class="where">${esc(r.room)}</span>
-              <span class="what"><span class="code">${esc(r.course)}</span>${
-                r.title ? " · " + esc(r.title) : ""}</span>
-              <span class="who">${esc(NowLogic.componentName(r.component))}${
-                r.who.length ? " · " + esc(r.who.slice(0, 3).join(", ")) : ""}${
-                r.alsoUnnamed.length ? " · also " + esc(r.alsoUnnamed.join(", ")) : ""}</span>
-            </span>
+            <span class="where">${esc(r.room)}</span>
             <span class="ends${soon ? " soonend" : ""}">${esc(NowLogic.endsLabel(r))}</span>
+            <span class="what"><span class="code">${esc(r.course)}</span>${
+              r.title ? " · " + esc(r.title) : ""}</span>
+            <span class="who">${esc(NowLogic.componentName(r.component))}${
+              r.who.length ? " · " + esc(r.who.slice(0, 3).join(", ")) : ""}${
+              r.alsoUnnamed.length ? " · also " + esc(r.alsoUnnamed.join(", ")) : ""}</span>
           </button>
           ${open.has(r.room) ? dayHtml(r.room, when) : ""}
         </li>`;

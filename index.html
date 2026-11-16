@@ -39,6 +39,10 @@ h1{font-size:24px;margin:4px 0 2px}h1 .red{color:var(--accent)}
 .controls input,.controls select{font:inherit;padding:7px 9px;border:1px solid var(--line);
   border-radius:8px;background:var(--card);color:var(--ink)}
 .controls input[type=search]{flex:1;min-width:170px}
+.controls button{font:inherit;font-size:14px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);color:var(--ink);cursor:pointer}
+.controls button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.bldg .walk{text-transform:none;letter-spacing:0;font-weight:500;margin-left:6px}
 .summary{color:var(--ink-2);font-size:13px;margin:6px 0 10px;font-variant-numeric:tabular-nums}
 .bldg{margin:16px 0 4px;font-weight:600;font-size:12px;color:var(--ink-2);
   text-transform:uppercase;letter-spacing:.04em}
@@ -95,6 +99,7 @@ input,select,textarea{font-size:16px!important}
   <div class="controls">
     <input type="search" id="q" placeholder="Room or building" aria-label="Search by room, building, course or instructor">
     <select id="when" aria-label="Time"></select>
+    <button type="button" id="near" aria-pressed="false">Near me</button>
   </div>
   <details class="finals" id="finals">
     <summary id="finsum">Finals week</summary>
@@ -127,6 +132,7 @@ input,select,textarea{font-size:16px!important}
 <script src="rooms-logic.js"></script>
 <script src="now-logic.js"></script>
 <script src="finals-logic.js"></script>
+<script src="near-logic.js"></script>
 <script>
 (async function () {
   const $ = (id) => document.getElementById(id);
@@ -174,6 +180,24 @@ input,select,textarea{font-size:16px!important}
 
   const open = new Set();   // rooms whose day timeline is expanded
 
+  // Near me, as on free-rooms: one tap asks for location, nothing is asked on load, and
+  // ?near=lat,lon pins it for tests. Buildings then run nearest first, each with its walk.
+  let places = {}, here = null, nearNote = "";
+  fetch("data/places.json").then((r) => r.json()).then((d) => { places = d.places; if (here) render(); }).catch(() => {});
+  const pinNear = new URLSearchParams(location.search).get("near");
+  if (pinNear) { here = pinNear.split(",").map(Number); $("near").setAttribute("aria-pressed", "true"); }
+  $("near").addEventListener("click", () => {
+    if (here) { here = null; nearNote = ""; $("near").setAttribute("aria-pressed", "false"); render(); return; }
+    if (!navigator.geolocation) { nearNote = "This browser can't share a location."; render(); return; }
+    $("near").textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition((p) => {
+      here = [p.coords.latitude, p.coords.longitude]; nearNote = "";
+      $("near").textContent = "Near me"; $("near").setAttribute("aria-pressed", "true"); render();
+    }, () => {
+      $("near").textContent = "Near me"; nearNote = "Location is off, so buildings stay A to Z."; render();
+    }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  });
+
   function dayHtml(room, when) {
     const rows = NowLogic.roomDay(meetings, room, when, noClass);
     if (!rows.length) return `<div class="day">Nothing else scheduled here today.</div>`;
@@ -219,6 +243,7 @@ input,select,textarea{font-size:16px!important}
     $("summary").textContent = q
       ? `${shown.length} of ${rows.length} in-session room${rows.length === 1 ? "" : "s"} match “${q}”`
       : NowLogic.summary(rows, all.length);
+    if (nearNote) $("summary").textContent += ` · ${nearNote}`;
     $("said").textContent = $("summary").textContent;
 
     if (!rows.length) {
@@ -235,8 +260,12 @@ input,select,textarea{font-size:16px!important}
       return;
     }
 
-    $("list").innerHTML = NowLogic.byBuilding(shown).map(([b, list]) => `
-      <h2 class="bldg">${esc(b)}</h2>
+    const groups = NowLogic.byBuilding(shown);
+    const walk = (b, m) => !here ? "" : m === null ? `<span class="walk">· location unknown</span>`
+      : `<span class="walk">· ${NearLogic.label(m)}${places[b][2] ? ` (${esc(places[b][2])})` : ""}</span>`;
+    $("list").innerHTML = (here ? NearLogic.order(groups, places, here) : groups.map(([b, l]) => [b, l, null]))
+      .map(([b, list, m]) => `
+      <h2 class="bldg">${esc(b)}${walk(b, m)}</h2>
       <ul>${list.map((r) => {
         const soon = r.endsInMin <= 10;
         return `<li class="room" data-room="${esc(r.room)}">

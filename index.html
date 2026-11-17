@@ -53,7 +53,7 @@ li.room{background:var(--card);border:1px solid var(--line);border-left:3px soli
    people get their own full-width lines (inline spans ran all four together and ignored margins) */
 li.room>button{all:unset;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;
   align-items:baseline;width:100%;cursor:pointer}
-li.room>button>.what,li.room>button>.who{grid-column:1/-1;display:block}
+li.room>button>.what,li.room>button>.who{grid-column:1/-1;display:block;max-width:65ch}
 li.room>button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:5px}
 li.room>button>.where{min-width:0;overflow-wrap:anywhere}
 .where{font-weight:600}
@@ -74,7 +74,7 @@ li.room>button>.where{min-width:0;overflow-wrap:anywhere}
 .note b{color:var(--ink)}
 footer{color:var(--ink-2);font-size:12px;margin:24px 0 8px;line-height:1.55}
 footer a{color:inherit}
-footer p{max-width:65ch}
+footer p{max-width:58ch}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 @media (prefers-reduced-motion:no-preference){li.room{transition:border-color .15s}}
 /* finals panel: course-centric, says when and never where */
